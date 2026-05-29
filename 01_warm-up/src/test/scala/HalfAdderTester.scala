@@ -10,26 +10,38 @@ import chisel3._
 import chiseltest._
 import org.scalatest.flatspec.AnyFlatSpec
 
-
-/** 
-  * Half adder tester
-  * Use the truth table from the exercise sheet to test all possible input combinations and the corresponding results exhaustively
-  */
 class HalfAdderTester extends AnyFlatSpec with ChiselScalatestTester {
 
   "HalfAdder" should "work" in {
     test(new HalfAdder).withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
+      
+      // Test case 1: 0 + 0 = 0, Carry = 0
+      dut.io.a.poke(false.B)
+      dut.io.b.poke(false.B)
+      dut.clock.step(1)
+      dut.io.sum.expect(false.B)
+      dut.io.carry.expect(false.B)
 
-          /*dut.io.a.poke(...)
-           *dut.io.b.poke(...)
-           *dut.io.ci.poke(...)
-           *dut.io.s.expect(...)
-           *dut.io.co.expect(...)
-           *...
-           *TODO: Insert your test cases
-           */
+      // Test case 2: 0 + 1 = 1, Carry = 0
+      dut.io.a.poke(false.B)
+      dut.io.b.poke(true.B)
+      dut.clock.step(1)
+      dut.io.sum.expect(true.B)
+      dut.io.carry.expect(false.B)
 
-        }
-    } 
+      // Test case 3: 1 + 0 = 1, Carry = 0
+      dut.io.a.poke(true.B)
+      dut.io.b.poke(false.B)
+      dut.clock.step(1)
+      dut.io.sum.expect(true.B)
+      dut.io.carry.expect(false.B)
+
+      // Test case 4: 1 + 1 = 0, Carry = 1
+      dut.io.a.poke(true.B)
+      dut.io.b.poke(true.B)
+      dut.clock.step(1)
+      dut.io.sum.expect(false.B)
+      dut.io.carry.expect(true.B)
+    }
+  } 
 }
-

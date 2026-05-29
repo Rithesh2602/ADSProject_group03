@@ -4,109 +4,129 @@
 // Chair of Electronic Design Automation, RPTU in Kaiserslautern
 // File created on 18/10/2022 by Tobias Jauch (@tojauch)
 
+
 package readserial
 
 import chisel3._
 import chisel3.util._
 
-
 /** controller class */
-class Controller extends Module{
-  
+class Controller extends Module {
+
   val io = IO(new Bundle {
-    /* 
-     * TODO: Define IO ports of a the component as stated in the documentation
-     */
-    })
+    val rxd       = Input(Bool())
+    val countDone = Input(Bool())
 
-  // internal variables
-  /* 
-   * TODO: Define internal variables (registers and/or wires), if needed
-   */
+    val enable    = Output(Bool())
+    val valid     = Output(Bool())
+  })
 
-  // state machine
-  /* 
-   * TODO: Describe functionality if the controller as a state machine
-   */
+  // States
+  val idle :: receive :: done :: Nil = Enum(3)
 
+  val state = RegInit(idle)
+
+  // Default outputs
+  io.enable := false.B
+  io.valid := false.B
+
+  switch(state) {
+
+    is(idle) {
+      when(io.rxd === false.B) {
+        state := receive
+      }
+    }
+
+    is(receive) {
+      io.enable := true.B
+
+      when(io.countDone) {
+        state := done
+      }
+    }
+
+    is(done) {
+      io.valid := true.B
+      state := idle
+    }
+  }
 }
 
 
 /** counter class */
-class Counter extends Module{
-  
+class Counter extends Module {
+
   val io = IO(new Bundle {
-    /* 
-     * TODO: Define IO ports of a the component as stated in the documentation
-     */
-    })
+    val enable = Input(Bool())
 
-  // internal variables
-  /* 
-   * TODO: Define internal variables (registers and/or wires), if needed
-   */
+    val done   = Output(Bool())
+    val count  = Output(UInt(4.W))
+  })
 
-  // state machine
-  /* 
-   * TODO: Describe functionality if the counter as a state machine
-   */
+  val counter = RegInit(0.U(4.W))
 
+  when(io.enable) {
+    counter := counter + 1.U
+  }.otherwise {
+    counter := 0.U
+  }
 
+  io.count := counter
+
+  io.done := (counter === 7.U)
 }
+
 
 /** shift register class */
-class ShiftRegister extends Module{
-  
+class ShiftRegister extends Module {
+
   val io = IO(new Bundle {
-    /* 
-     * TODO: Define IO ports of a the component as stated in the documentation
-     */
-    })
+    val enable = Input(Bool())
+    val rxd    = Input(Bool())
 
-  // internal variables
-  /* 
-   * TODO: Define internal variables (registers and/or wires), if needed
-   */
+    val data   = Output(UInt(8.W))
+  })
 
-  // functionality
-  /* 
-   * TODO: Describe functionality if the shift register
-   */
+  val shiftReg = RegInit(0.U(8.W))
+
+  when(io.enable) {
+
+    // MSB first shifting
+    shiftReg := Cat(shiftReg(6,0), io.rxd)
+  }
+
+  io.data := shiftReg
 }
 
-/** 
-  * The last warm-up task deals with a more complex component. Your goal is to design a serial receiver.
-  * It scans an input line (“serial bus”) named rxd for serial transmissions of data bytes. A transmission 
-  * begins with a start bit ‘0’ followed by 8 data bits. The most significant bit (MSB) is transmitted first. 
-  * There is no parity bit and no stop bit. After the last data bit has been transferred a new transmission 
-  * (beginning with a start bit, ‘0’) may immediately follow. If there is no new transmission the bus line 
-  * goes high (‘1’, this is considered the “idle” bus signal). In this case the receiver waits until the next 
-  * transmission begins. The outputs of the design are an 8-bit parallel data signal and a valid signal. 
-  * The valid signal goes high (‘1’) for one clock cycle after the last serial bit has been transmitted, 
-  * indicating that a new data byte is ready.
-  */
-class ReadSerial extends Module{
-  
+
+/** Serial Receiver */
+class ReadSerial extends Module {
+
   val io = IO(new Bundle {
-    /* 
-     * TODO: Define IO ports of a the component as stated in the documentation
-     */
-    })
 
+    val rxd   = Input(Bool())
 
-  // instanciation of modules
-  /* 
-   * TODO: Instanciate the modules that you need
-   */
+    val data  = Output(UInt(8.W))
+    val valid = Output(Bool())
+  })
 
-  // connections between modules
-  /* 
-   * TODO: connect the signals between the modules
-   */
+  // Instantiate modules
+  val controller = Module(new Controller())
+  val counter    = Module(new Counter())
+  val shiftReg   = Module(new ShiftRegister())
 
-  // global I/O 
-  /* 
-   * TODO: Describe output behaviour based on the input values and the internal signals
-   */
+  // Connections
 
+  controller.io.rxd := io.rxd
+  controller.io.countDone := counter.io.done
+
+  counter.io.enable := controller.io.enable
+
+  shiftReg.io.enable := controller.io.enable
+  shiftReg.io.rxd := io.rxd
+
+  // Outputs
+  io.data := shiftReg.io.data
+  io.valid := controller.io.valid
 }
