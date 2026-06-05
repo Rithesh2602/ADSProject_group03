@@ -12,10 +12,14 @@ interface alu_if (input clk);
     logic [DATA_WIDTH-1:0] operandB;
     ALUOp operation;
     logic [DATA_WIDTH-1:0] aluResult;
+ 
 
+    // Fix the driver output/input alignments
     clocking cb @(posedge clk);
         default input #3ns output #2ns;
-        input operandA, operandB, operation;
-        output aluResult;
+        output operandA;   // Changed to output so Driver can push data
+        output operandB;   // Changed to output
+        output operation;  // Changed to output
+        input  aluResult;  // Changed to input so Monitor can read results
     endclocking 
 endinterface
