@@ -104,7 +104,48 @@ class PipelinedRISCV32ITest extends AnyFlatSpec with ChiselScalatestTester {
       dut.clock.step(1)
       dut.io.result.expect(1.U)     // SLTU x13, x5, x4
       dut.io.exception.expect(false.B)
-      dut.clock.step(1)           
+      dut.clock.step(1)   
+
+      dut.io.result.expect("hFFFFFFFF".U) // ADDI x14, x0, -1
+      dut.io.exception.expect(false.B)
+      dut.clock.step(1)
+
+      dut.io.result.expect(15.U) // ADDI x16, x0, 15
+      dut.io.exception.expect(false.B)
+      dut.clock.step(1)
+     
+      dut.io.result.expect(255.U) // XORI x15,x0,255
+      dut.io.exception.expect(false.B)
+      dut.clock.step(1)
+
+      dut.io.result.expect(255.U) // ORI x17,x0,255
+      dut.io.exception.expect(false.B)
+      dut.clock.step(1)
+
+      dut.io.result.expect(0.U) // ANDI x18,x0,255
+      dut.io.exception.expect(false.B)
+      dut.clock.step(1)
+
+      dut.io.result.expect(1.U) // SLTI x19,x0,1
+      dut.io.exception.expect(false.B)
+      dut.clock.step(1)
+
+      dut.io.result.expect(1.U) // SLTIU x20,x0,1
+      dut.io.exception.expect(false.B)
+      dut.clock.step(1)
+
+      dut.io.result.expect(10.U) // SLLI x18,x2,1
+      dut.io.exception.expect(false.B)
+      dut.clock.step(1)
+
+      dut.io.result.expect(2.U) // SRLI x19,x2,1
+      dut.io.exception.expect(false.B)
+      dut.clock.step(1)
+
+      dut.io.result.expect(2.U) // SRAI x20,x2,1
+      dut.io.exception.expect(false.B)
+      dut.clock.step(1)
+
     }
   }
 }

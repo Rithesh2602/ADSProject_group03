@@ -26,9 +26,20 @@ import chisel3._
 
 class MEM extends Module {
   val io = IO(new Bundle {
+    // Inputs from EX/MEM Barrier
+    val inAluResult = Input(UInt(32.W))
+    val inRD        = Input(UInt(5.W))
+    val inException = Input(Bool())
 
+    // Outputs to MEM/WB Barrier
+    val outAluResult = Output(UInt(32.W))
+    val outRD        = Output(UInt(5.W))
+    val outException = Output(Bool())
   })
 
-  // No memory operations implemented in Assignment03, nothing to do here! :)
-
+  // No memory operations implemented in Assignment03!
+  // Simply feed the signals forward to preserve pipeline timing layout.
+  io.outAluResult := io.inAluResult
+  io.outRD        := io.inRD
+  io.outException := io.inException
 }
