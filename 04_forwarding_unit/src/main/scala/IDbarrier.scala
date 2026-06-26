@@ -33,10 +33,41 @@ Functionality:
 package core_tile
 
 import chisel3._
-import uopc._
+import chisel3.util._
 
-// -----------------------------------------
-// ID-Barrier
-// -----------------------------------------
+class IDBarrier extends Module {
+  val io = IO(new Bundle {
+    val inUOP           = Input(UOpCode())
+    val inRD            = Input(UInt(5.W))
+    val inOperandA      = Input(UInt(32.W))
+    val inOperandB      = Input(UInt(32.W))
+    val inXcptInvalid   = Input(Bool())
+    
+    val inRs1           = Input(UInt(5.W))
+    val inRs2           = Input(UInt(5.W))
+    val inRegWrite      = Input(Bool())
+    val inInstr         = Input(UInt(32.W))
 
-//ToDo: Add your implementation according to the specification above here 
+    val outUOP          = Output(UOpCode())
+    val outRD           = Output(UInt(5.W))
+    val outOperandA     = Output(UInt(32.W))
+    val outOperandB     = Output(UInt(32.W))
+    val outXcptInvalid  = Output(Bool())
+    
+    val outRs1          = Output(UInt(5.W))
+    val outRs2          = Output(UInt(5.W))
+    val outRegWrite     = Output(Bool())
+    val outInstr        = Output(UInt(32.W))
+  })
+
+  io.outUOP          := RegNext(io.inUOP)
+  io.outRD           := RegNext(io.inRD)
+  io.outOperandA     := RegNext(io.inOperandA)
+  io.outOperandB     := RegNext(io.inOperandB)
+  io.outXcptInvalid  := RegNext(io.inXcptInvalid)
+  
+  io.outRs1          := RegNext(io.inRs1)
+  io.outRs2          := RegNext(io.inRs2)
+  io.outRegWrite     := RegNext(io.inRegWrite, false.B)
+  io.outInstr        := RegNext(io.inInstr, 0.U)
+}

@@ -29,10 +29,6 @@ Ports:
 Functionality:
     Two read ports allow simultaneous reading of two operands
     Synchronous write updates register if wr_en is asserted
-
-
-Special Case for hazard resolution:    
-    If a register is read and written in the same clock cycle, send the new data to data output!
 */
 
 // -----------------------------------------
@@ -40,22 +36,58 @@ Special Case for hazard resolution:
 // -----------------------------------------
 
 class regFileReadReq extends Bundle {
-    //ToDo: implement bundle for read request
+  val addr = UInt(5.W)
 }
 
 class regFileReadResp extends Bundle {
-    //ToDo: implement bundle for read response
+  val data = UInt(32.W)
 }
 
 class regFileWriteReq extends Bundle {
-    //ToDo: implement bundle for write request
+  val addr  = UInt(5.W)
+  val data  = UInt(32.W)
+  val wr_en = Bool()
 }
+
+// -----------------------------------------
+// Register File Module
+// -----------------------------------------
 
 class regFile extends Module {
   val io = IO(new Bundle {
-    //ToDo: Add I/O ports 
-})
+    // Port 1: First Read Port
+    val req_1  = Input(new regFileReadReq)
+    val resp_1 = Output(new regFileReadResp)
 
-//ToDo: Add your implementation according to the specification above here 
+    // Port 2: Second Read Port
+    val req_2  = Input(new regFileReadReq)
+    val resp_2 = Output(new regFileReadResp)
 
+    // Port 3: Single Write Port
+    val req_3  = Input(new regFileWriteReq)
+  })
+
+  // Instantiate the internal register file storage (32 registers, each 32 bits wide and resets to 0)
+  // Use a register-backed Vec for asynchronous (combinational) reads 
+  val rf = RegInit(VecInit(Seq.fill(32)(0.U(32.W))))
+
+  // --- Read Operations (Combinational/Asynchronous Read) ---
+  // If the requested address is 0, structurally hardwire the output data response to 0.
+  val writeEnable = io.req_3.wr_en && (io.req_3.addr =/= 0.U)
+  val writeAddr   = io.req_3.addr
+  val writeData   = io.req_3.data
+
+  io.resp_1.data := Mux(io.req_1.addr === 0.U, 0.U,
+                    Mux(writeEnable && (io.req_1.addr === writeAddr), writeData,
+                        rf(io.req_1.addr)))
+  io.resp_2.data := Mux(io.req_2.addr === 0.U, 0.U,
+                    Mux(writeEnable && (io.req_2.addr === writeAddr), writeData,
+                        rf(io.req_2.addr)))
+
+  // --- Write Operation (Synchronous Write) ---
+  // Perform write update on the rising clock edge only if write enable is true
+  // and the target register destination is NOT x0.
+  when(writeEnable) {
+    rf(io.req_3.addr) := io.req_3.data
+  }
 }

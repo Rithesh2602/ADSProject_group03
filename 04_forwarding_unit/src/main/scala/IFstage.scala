@@ -33,7 +33,7 @@ Outputs:
 package core_tile
 
 import chisel3._
-import chisel3.util.experimental.loadMemoryFromFile
+import chisel3.util.experimental.loadMemoryFromFile //pre-load a hardware memory module with data from an external text file
 
 // -----------------------------------------
 // Fetch Stage
@@ -41,9 +41,24 @@ import chisel3.util.experimental.loadMemoryFromFile
 
 class IF (BinaryFile: String) extends Module {
   val io = IO(new Bundle {
-    // ToDo: Add I/O ports
+    // Output to the IF-Barrier
+    val instr = Output(UInt(32.W))
   })
 
-//ToDo: Add your implementation according to the specification above here 
-  
+  // 1. Instantiate Instruction Memory (IMem) with 4096 32-bit entries
+  val imem = Mem(4096, UInt(32.W)) //Allocates an internal, synchronous memory block (RAM) inside the FPGA/ASIC
+  loadMemoryFromFile(imem, BinaryFile)
+
+  // 2. Program Counter (PC) Initialization (Starts at 0)
+  val pcReg = RegInit(0.U(32.W))
+
+  // 3. Sequential Next-PC Logic (Increment by 4 bytes each cycle)
+  pcReg := pcReg + 4.U
+
+  // 4. Word-Aligned Memory Addressing 
+  // Because imem is an array of 32-bit words, byte addresses must be divided by 4 (shifted right by 2).
+  val fetchedInstr = imem(pcReg >> 2)
+
+  // 5. Connect Stage Output
+  io.instr := fetchedInstr
 }
