@@ -29,10 +29,26 @@ Functionality:
 package core_tile
 
 import chisel3._
+import chisel3.util._
 
-// -----------------------------------------
-// EX-Barrier
-// -----------------------------------------
+// -------------------------------------------------------------
+// EX to MEM Barrier Register
+// -------------------------------------------------------------
+class EXBarrier extends Module {
+  val io = IO(new Bundle {
+    val inAluResult   = Input(UInt(32.W))
+    val inRD          = Input(UInt(5.W))
+    val inXcptInvalid = Input(Bool())
+    val inRegWrite    = Input(Bool())
 
-//ToDo: Add your implementation according to the specification above here 
+    val outAluResult  = Output(UInt(32.W))
+    val outRD         = Output(UInt(5.W))
+    val outXcptInvalid= Output(Bool())
+    val outRegWrite   = Output(Bool())
+  })
 
+  io.outAluResult   := RegNext(io.inAluResult)
+  io.outRD          := RegNext(io.inRD)
+  io.outXcptInvalid := RegNext(io.inXcptInvalid)
+  io.outRegWrite    := RegNext(io.inRegWrite, false.B)
+}

@@ -1,4 +1,4 @@
-00000013 // ADDI x0, x0, 0
+00000013 // ADDI x0, x0, 0 (NOP)
 00400093 // ADDI x1, x0, 4
 00500113 // ADDI x2, x0, 5
 002081b3 // ADD x3, x1, x2
@@ -17,4 +17,19 @@
 004236b3 // SLTU x13, x4, x4
 005236b3 // SLTU x13, x4, x5
 0042b6b3 // SLTU x13, x5, x4
-021141b3 // DIV x3, x2, x1 (NOT IMPLEMENTED!)
+03200713 // ADDI x14, x0, 50
+00a00793 // ADDI x15, x0, 10
+00f70833 // ADD x16, x14, x15
+06400893 // ADDI x17, x0, 100
+0c800893 // ADDI x17, x0, 200
+00088933 // ADD x18, x17, x0 (Verifies forwarding of 200)
+00a00a13 // ADDI x20, x0, 10
+00a00a93 // ADDI x21, x0, 10
+00330663 // BEQ x20, x21, 12 (Condition true -> jumps to JAL)
+06300b13 // ADDI x22, x0, 99 (FLUSHED BUBBLE!)
+06300b93 // ADDI x23, x0, 99 (FLUSHED BUBBLE!)
+00c00c6f // JAL x24, 12 (Unconditional jump -> jumps to BNE)
+05800cd3 // ADDI x25, x0, 88 (FLUSHED BUBBLE!)
+05800d53 // ADDI x26, x0, 88 (FLUSHED BUBBLE!)
+ff5a1de3 // BNE x20, x21, -8 (Condition false -> falls through)
+01e00d93 // ADDI x27, x0, 30 (Final target evaluated by the while loop)
