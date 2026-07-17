@@ -56,168 +56,95 @@ import chisel3.util.experimental.loadMemoryFromFile //pre-load a hardware memory
 import Assignment02.{ALU, ALUOp}
 import UOpCode._ 
 
-class PipelinedRISCV32Icore (BinaryFile: String) extends Module {
+// FIXED NAME: Changed from PipelinedRISCV32Icore to PipelinedRV32Icore to match the wrapper
+class PipelinedRV32Icore (BinaryFile: String) extends Module {
   val io = IO(new Bundle {
     val check_res = Output(UInt(32.W)) 
     val exception = Output(Bool())
   })
+// -----------------------------------------
+  // 1. Central Register File Module Instance
+  // -----------------------------------------
+  val rFile = Module(new regFile)
 
   // -----------------------------------------
-  // Architectural Elements & Memories
+  // 2. Instantiate All Modular Stages & Barriers
   // -----------------------------------------
-  val imem = Mem(4096, UInt(32.W))
-  loadMemoryFromFile(imem, BinaryFile)
+  val stage_IF   = Module(new IF(BinaryFile))
+  val bar_IF_ID  = Module(new IFBarrier)
+  
+  val stage_ID   = Module(new IDStage)
+  val bar_ID_EX  = Module(new IDBarrier)
+  
+  val stage_EX   = Module(new EXStage)
+  val bar_EX_MEM = Module(new EXBarrier)
+  
+  val stage_MEM  = Module(new MEM)
+  val bar_MEM_WB = Module(new MEMBarrier)
 
-  // Register File: 32 entries of 32-bit width
-  val regFile = Mem(32, UInt(32.W))
-
-  // -----------------------------------------
-  // 1. FETCH (IF) STAGE
-  // -----------------------------------------
-  val if_pc = RegInit(0.U(32.W))
-  val if_instr = imem(if_pc >> 2) 
-
-  // Next PC logic (No branches/jumps in this subset)
-  if_pc := if_pc + 4.U
-
-  // --- IF/ID Pipeline Register ---
-  val id_pc    = RegNext(if_pc)
-  val id_instr = RegNext(if_instr)
+  val stage_WB   = Module(new WB)
+  val bar_WB_Out = Module(new WBBarrier)
 
   // -----------------------------------------
-  // 2. DECODE (ID) STAGE
-  // -----------------------------------------
-  val opcode = id_instr(6, 0)
-  val id_rd  = id_instr(11, 7)
-  val funct3 = id_instr(14, 12)
-  val id_rs1 = id_instr(19, 15)
-  val id_rs2 = id_instr(24, 20)
-  val funct7 = id_instr(31, 25)
-
-  // Sign-extend 12-bit immediate for I-type instructions
-  val id_imm = Cat(Fill(20, id_instr(31)), id_instr(31, 20))
-
-  // Synchronous Register File Read with x0 hardwired to 0
-  val id_rs1_data = Mux(id_rs1 === 0.U, 0.U, regFile(id_rs1))
-  val id_rs2_data = Mux(id_rs2 === 0.U, 0.U, regFile(id_rs2))
-
-  // Control Logic using your UOpCode Enum
-  val id_uop       = Wire(UOpCode())
-  val id_illegal   = Wire(Bool())
-  val id_reg_write = Wire(Bool())
-
-  // Default assignments: If no 'is' block matches below, these remain active!
-  id_uop       := UOpCode.uopNOP
-  id_illegal   := (id_instr =/= 0.U) // Illegal if it isn't a structural NOP bubble (0x00000000)
-  id_reg_write := false.B
-
-  switch(opcode) {
-    // R-type instructions
-    is("b0110011".U) {
-      id_reg_write := true.B
-      id_illegal   := false.B
-      id_uop := MuxLookup(Cat(funct7, funct3), UOpCode.uopNOP, Seq(
-        "b0000000_000".U -> UOpCode.uopADD,
-        "b0100000_000".U -> UOpCode.uopSUB,
-        "b0000000_001".U -> UOpCode.uopSLL,
-        "b0000000_010".U -> UOpCode.uopSLT,
-        "b0000000_011".U -> UOpCode.uopSLTU,
-        "b0000000_100".U -> UOpCode.uopXOR,
-        "b0000000_101".U -> UOpCode.uopSRL,
-        "b0100000_101".U -> UOpCode.uopSRA,
-        "b0000000_110".U -> UOpCode.uopOR,
-        "b0000000_111".U -> UOpCode.uopAND
-      ))
-      when (id_uop === UOpCode.uopNOP) { id_illegal := true.B }
-    }
-    // I-type instructions
-    is("b0010011".U) {
-      id_reg_write := true.B
-      id_illegal   := false.B
-      id_uop := MuxLookup(funct3, UOpCode.uopNOP, Seq(
-        "b000".U -> UOpCode.uopADDI,
-        "b010".U -> UOpCode.uopSLTI,
-        "b011".U -> UOpCode.uopSLTIU,
-        "b100".U -> UOpCode.uopXORI,
-        "b110".U -> UOpCode.uopORI,
-        "b111".U -> UOpCode.uopANDI,
-        "b001".U -> Mux(funct7 === "b0000000".U, UOpCode.uopSLLI, UOpCode.uopNOP),
-        "b101".U -> Mux(funct7 === "b0000000".U, UOpCode.uopSRLI, 
-                        Mux(funct7 === "b0100000".U, UOpCode.uopSRAI, UOpCode.uopNOP))
-      ))
-      when (id_uop === UOpCode.uopNOP) { id_illegal := true.B }
-    }
-  }
-
-  // --- ID/EX Pipeline Register ---
-  val ex_uop       = RegNext(id_uop, UOpCode.uopNOP)
-  val ex_rs1_data  = RegNext(id_rs1_data)
-  val ex_rs2_data  = RegNext(id_rs2_data)
-  val ex_imm       = RegNext(id_imm)
-  val ex_rd        = RegNext(id_rd)
-  val ex_reg_write = RegNext(id_reg_write, false.B)
-  val ex_exception = RegNext(id_illegal, false.B)
-
-  // -----------------------------------------
-  // 3. EXECUTE (EX) STAGE
-  // -----------------------------------------
-  val alu_op = Wire(ALUOp())
-  val srcB_is_imm = Wire(Bool())
-
-  alu_op := ALUOp.ADD 
-  srcB_is_imm := false.B
-
-  switch(ex_uop) {
-    is(UOpCode.uopADD)   { alu_op := ALUOp.ADD;   srcB_is_imm := false.B }
-    is(UOpCode.uopSUB)   { alu_op := ALUOp.SUB;   srcB_is_imm := false.B }
-    is(UOpCode.uopSLL)   { alu_op := ALUOp.SLL;   srcB_is_imm := false.B }
-    is(UOpCode.uopSLT)   { alu_op := ALUOp.SLT;   srcB_is_imm := false.B }
-    is(UOpCode.uopSLTU)  { alu_op := ALUOp.SLTU;  srcB_is_imm := false.B }
-    is(UOpCode.uopXOR)   { alu_op := ALUOp.XOR;   srcB_is_imm := false.B }
-    is(UOpCode.uopSRL)   { alu_op := ALUOp.SRL;   srcB_is_imm := false.B }
-    is(UOpCode.uopSRA)   { alu_op := ALUOp.SRA;   srcB_is_imm := false.B }
-    is(UOpCode.uopOR)    { alu_op := ALUOp.OR;    srcB_is_imm := false.B }
-    is(UOpCode.uopAND)   { alu_op := ALUOp.AND;   srcB_is_imm := false.B }
-    
-    is(UOpCode.uopADDI)  { alu_op := ALUOp.ADD;   srcB_is_imm := true.B }
-    is(UOpCode.uopSLTI)  { alu_op := ALUOp.SLT;   srcB_is_imm := true.B }
-    is(UOpCode.uopSLTIU) { alu_op := ALUOp.SLTU;  srcB_is_imm := true.B }
-    is(UOpCode.uopXORI)  { alu_op := ALUOp.XOR;   srcB_is_imm := true.B }
-    is(UOpCode.uopORI)   { alu_op := ALUOp.OR;    srcB_is_imm := true.B }
-    is(UOpCode.uopANDI)  { alu_op := ALUOp.AND;   srcB_is_imm := true.B }
-    is(UOpCode.uopSLLI)  { alu_op := ALUOp.SLL;   srcB_is_imm := true.B }
-    is(UOpCode.uopSRLI)  { alu_op := ALUOp.SRL;   srcB_is_imm := true.B }
-    is(UOpCode.uopSRAI)  { alu_op := ALUOp.SRA;   srcB_is_imm := true.B }
-  }
-
-  // Instantiate the ALU from Assignment02
-  val alu = Module(new ALU)
-  alu.io.operandA  := ex_rs1_data
-  alu.io.operandB  := Mux(srcB_is_imm, ex_imm, ex_rs2_data)
-  alu.io.operation := alu_op
-
-  // --- EX/MEM Pipeline Register ---
-  val mem_alu_res   = RegNext(alu.io.aluResult)
-  val mem_rd        = RegNext(ex_rd)
-  val mem_reg_write = RegNext(ex_reg_write, false.B)  
-  val mem_exception = RegNext(ex_exception, false.B)
-
-  // -----------------------------------------
-  // 4. MEMORY (MEM) STAGE
+  // 3. Pipeline Interconnections & Wiring
   // -----------------------------------------
 
-  // --- MEM/WB Pipeline Register ---
-  val wb_alu_res   = RegNext(mem_alu_res)
-  val wb_rd        = RegNext(mem_rd)
-  val wb_reg_write = RegNext(mem_reg_write, false.B)
-  val wb_exception = RegNext(mem_exception, false.B)
+  // --- FETCH (IF) STAGE -> IF/ID BARRIER ---
+  bar_IF_ID.io.inInstr := stage_IF.io.instr
 
-  // -----------------------------------------
-  // 5. WRITEBACK (WB) STAGE
-  // -----------------------------------------
-  when(wb_reg_write && (wb_rd =/= 0.U)) {
-    regFile(wb_rd) := wb_alu_res
-  }
+  // --- IF/ID BARRIER -> DECODE (ID) STAGE ---
+  stage_ID.io.inInstruction := bar_IF_ID.io.outInstr
+
+  // --- DECODE (ID) STAGE <-> REGISTER FILE READ PORTS ---
+  rFile.io.req_1.addr       := stage_ID.io.regFileReq_A
+  rFile.io.req_2.addr       := stage_ID.io.regFileReq_B
+  stage_ID.io.regFileResp_A := rFile.io.resp_1.data
+  stage_ID.io.regFileResp_B := rFile.io.resp_2.data
+
+  // --- DECODE (ID) STAGE -> ID/EX BARRIER ---
+  bar_ID_EX.io.inUOP           := stage_ID.io.outUop
+  bar_ID_EX.io.inRD            := stage_ID.io.outRD
+  bar_ID_EX.io.inOperandA      := stage_ID.io.outOperandA
+  bar_ID_EX.io.inOperandB      := stage_ID.io.outOperandB
+  bar_ID_EX.io.inXcptInvalid   := stage_ID.io.outXcptInvalid
+
+  // --- ID/EX BARRIER -> EXECUTE (EX) STAGE ---
+  stage_EX.io.inUop         := bar_ID_EX.io.outUOP
+  stage_EX.io.inRs1Data     := bar_ID_EX.io.outOperandA
+  stage_EX.io.inRs2Data     := bar_ID_EX.io.outOperandB
+  stage_EX.io.inImm         := bar_ID_EX.io.outOperandB 
+  stage_EX.io.inXcptId      := bar_ID_EX.io.outXcptInvalid
+
+  // --- EXECUTE (EX) STAGE -> EX/MEM BARRIER ---
+  bar_EX_MEM.io.inAluResult   := stage_EX.io.aluResult
+  bar_EX_MEM.io.inRD          := bar_ID_EX.io.outRD 
+  bar_EX_MEM.io.inXcptInvalid := stage_EX.io.exception
+
+  // --- EX/MEM BARRIER -> MEMORY (MEM) STAGE ---
+  stage_MEM.io.inAluResult := bar_EX_MEM.io.outAluResult
+  stage_MEM.io.inRD        := bar_EX_MEM.io.outRD
+  stage_MEM.io.inException := bar_EX_MEM.io.outXcptInvalid
+
+  // --- MEMORY (MEM) STAGE -> MEM/WB BARRIER ---
+  bar_MEM_WB.io.inAluResult := stage_MEM.io.outAluResult
+  bar_MEM_WB.io.inRD        := stage_MEM.io.outRD
+  bar_MEM_WB.io.inException := stage_MEM.io.outException
+
+  // --- MEM/WB BARRIER -> WRITEBACK (WB) STAGE ---
+  stage_WB.io.aluResult     := bar_MEM_WB.io.outAluResult
+  stage_WB.io.rd            := bar_MEM_WB.io.outRD
+  stage_WB.io.inException   := bar_MEM_WB.io.outException
+
+  // --- WRITEBACK (WB) STAGE -> REGISTER FILE WRITE PORT ---
+  rFile.io.req_3            := stage_WB.io.regFileReq
+
+  // --- WRITEBACK (WB) STAGE -> WB OUTPUT BARRIER ---
+  bar_WB_Out.io.inCheckRes    := stage_WB.io.check_res
+  bar_WB_Out.io.inXcptInvalid := bar_MEM_WB.io.outException
+  
+  // --- DEFINE LOCAL WIRES AND MAP TO TOP IO ---
+  val wb_alu_res   = stage_WB.io.check_res
+  val wb_exception = bar_WB_Out.io.outXcptInvalid
 
   io.check_res := wb_alu_res
   io.exception := wb_exception
