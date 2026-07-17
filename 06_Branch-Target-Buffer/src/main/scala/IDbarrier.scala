@@ -8,7 +8,7 @@
 ID-Barrier: pipeline register between Decode and Execute stages
 
 Internal Registers:
-    uop: micro-operation code (from uopc enum)
+    uop: micro-operation code (from UOpCode enum)
     rd: destination register index, initialized to 0
     operandA: first source operand, initialized to 0
     operandB: second operand/immediate, initialized to 0
@@ -33,10 +33,80 @@ Functionality:
 package core_tile
 
 import chisel3._
-import uopc._
+import chisel3.util._
 
-// -----------------------------------------
-// ID-Barrier
-// -----------------------------------------
+class IDBarrier extends Module {
+  val io = IO(new Bundle {
+    val inUOP           = Input(UOpCode())
+    val inRD            = Input(UInt(5.W))
+    val inOperandA      = Input(UInt(32.W))
+    val inOperandB      = Input(UInt(32.W))
+    val inXcptInvalid   = Input(Bool())
+    
+    val inRs1           = Input(UInt(5.W))
+    val inRs2           = Input(UInt(5.W))
+    val inRegWrite      = Input(Bool())
+    val inInstr         = Input(UInt(32.W))
+    val inPC            = Input(UInt(32.W)) // Pass PC forward for target address calculation
+    val flush           = Input(Bool())     // Pipeline flush port
 
-//ToDo: Add your implementation according to the specification above here 
+    val outUOP          = Output(UOpCode())
+    val outRD           = Output(UInt(5.W))
+    val outOperandA     = Output(UInt(32.W))
+    val outOperandB     = Output(UInt(32.W))
+    val outXcptInvalid  = Output(Bool())
+    
+    val outRs1          = Output(UInt(5.W))
+    val outRs2          = Output(UInt(5.W))
+    val outRegWrite     = Output(Bool())
+    val outInstr        = Output(UInt(32.W))
+    val outPC           = Output(UInt(32.W))
+  })
+
+  // Synchronous registers for the barrier data
+  val uopReg      = RegInit(UOpCode.uopNOP)
+  val rdReg       = RegInit(0.U(5.W))
+  val opAReg      = RegInit(0.U(32.W))
+  val opBReg      = RegInit(0.U(32.W))
+  val xcptReg     = RegInit(false.B)
+  val rs1Reg      = RegInit(0.U(5.W))
+  val rs2Reg      = RegInit(0.U(5.W))
+  val regWrReg    = RegInit(false.B)
+  val instrReg    = RegInit(0.U(32.W))
+  val pcReg       = RegInit(0.U(32.W))
+
+  when(io.flush) {
+    uopReg      := UOpCode.uopNOP
+    rdReg       := 0.U
+    opAReg      := 0.U
+    opBReg      := 0.U
+    xcptReg     := false.B
+    rs1Reg      := 0.U
+    rs2Reg      := 0.U
+    regWrReg    := false.B
+    instrReg    := 0x00000013.U // NOP: addi x0, x0, 0
+    pcReg       := 0.U
+  }.otherwise {
+    uopReg      := io.inUOP
+    rdReg       := io.inRD
+    opAReg      := io.inOperandA
+    opBReg      := io.inOperandB
+    xcptReg     := io.inXcptInvalid
+    rs1Reg      := io.inRs1
+    rs2Reg      := io.inRs2
+    regWrReg    := io.inRegWrite
+    instrReg    := io.inInstr
+    pcReg       := io.inPC
+  }
+
+  io.outUOP          := uopReg
+  io.outRD           := rdReg
+  io.outOperandA     := opAReg
+  io.outOperandB     := opBReg
+  io.outXcptInvalid  := xcptReg
+  io.outRs1          := rs1Reg
+  io.outRs2          := rs2Reg
+  io.outRegWrite     := regWrReg
+  io.outInstr        := instrReg
+  io.outPC           := pcReg
+}

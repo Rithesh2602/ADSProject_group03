@@ -1,20 +1,37 @@
-00000013 // ADDI x0, x0, 0
-00400093 // ADDI x1, x0, 4
-00500113 // ADDI x2, x0, 5
-002081b3 // ADD x3, x1, x2
-7ff00213 // ADDI x4, x0, 2047
-01000293 // ADDI x5, x0, 16
-40520333 // SUB x6, x4, x5
-003343b3 // XOR x7, x6, x3
-00536433 // OR x8, x6, x5
-005374b3 // AND x9, x6, x5
-00239533 // SLL x10, x7, x2
-0023d5b3 // SRL x11, x7, x2
-4023d633 // SRA x12, x7, x2
-004226b3 // SLT x13, x4, x4
-005226b3 // SLT x13, x4, x5
-0042a6b3 // SLT x13, x5, x4
-004236b3 // SLTU x13, x4, x4
-005236b3 // SLTU x13, x4, x5
-0042b6b3 // SLTU x13, x5, x4
-021141b3 // DIV x3, x2, x1 (NOT IMPLEMENTED!)
+00000013 // ADDI x0, x0, 0 (PC 0x00)
+00400093 // ADDI x1, x0, 4 (PC 0x04)
+00500113 // ADDI x2, x0, 5 (PC 0x08)
+002081B3 // ADD x3, x1, x2 (PC 0x0C)
+7FF00213 // ADDI x4, x0, 2047 (PC 0x10)
+01000293 // ADDI x5, x0, 16 (PC 0x14)
+40520333 // SUB x6, x4, x5 (PC 0x18)
+003343B3 // XOR x7, x6, x3 (PC 0x1C)
+00536433 // OR x8, x6, x5 (PC 0x20)
+005374B3 // AND x9, x6, x5 (PC 0x24)
+00239533 // SLL x10, x7, x2 (PC 0x28)
+0023D5B3 // SRL x11, x7, x2 (PC 0x2C)
+0023D633 // SRA x12, x7, x2 (PC 0x30)
+004226B3 // SLT x13, x4, x4 (PC 0x34)
+005226B3 // SLT x13, x4, x5 (PC 0x38)
+0042A6B3 // SLT x13, x5, x4 (PC 0x3C)
+004226B3 // SLTU x13, x4, x4 (PC 0x40)
+005226B3 // SLTU x13, x4, x5 (PC 0x44)
+0042A6B3 // SLTU x13, x5, x4 (PC 0x48)
+03200713 // ADDI x14, x0, 50 (PC 0x4C)
+00A00793 // ADDI x15, x0, 10 (PC 0x50)
+00F70833 // ADD x16, x14, x15 (PC 0x54)
+06400893 // ADDI x17, x0, 100 (PC 0x58)
+0C800893 // ADDI x17, x0, 200 (PC 0x5C)
+000888B3 // ADD x18, x17, x0 (PC 0x60)
+00A00A13 // ADDI x20, x0, 10 (PC 0x64)
+00A00A93 // ADDI x21, x0, 10 (PC 0x68)
+00A20063 // BEQ x20, x21, 8 (PC 0x6C)
+00C0006F // JAL x0, 12 (PC 0x70)
+01E00DA3 // ADDI x27, x0, 30 (PC 0x74)
+0080006F // JAL x0, 8 (PC 0x78 -> Jump to PC 0x80 to align first branch)
+00208463 // BEQ x1, x2, 8 (PC 0x80 -> Set 0, Way 0) [4:2]=000. (4 != 5, Not Taken)
+0180006F // JAL x0, 24 (PC 0x84 -> Jump to PC 0xA0 to align second branch)
+00208463 // BEQ x1, x2, 8 (PC 0xA0 -> Set 0, Way 1) [4:2]=000. (4 != 5, Not Taken)
+0180006F // JAL x0, 24 (PC 0xA4 -> Jump to PC 0xC0 to align third branch)
+00208263 // BEQ x1, x2, 4 (PC 0xC0 -> Set 0, TRIPS LRU EVICTION) [4:2]=000. (Not Taken)
+00C00193 // ADDI x3, x0, 12 (PC 0xC4 -> Final instruction)

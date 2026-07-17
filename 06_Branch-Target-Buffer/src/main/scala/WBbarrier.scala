@@ -27,9 +27,30 @@ Functionality:
 package core_tile
 
 import chisel3._
+import chisel3.util._
 
 // -----------------------------------------
 // WB-Barrier
 // -----------------------------------------
 
-//ToDo: Add your implementation according to the specification above here 
+class WBBarrier extends Module {
+  val io = IO(new Bundle {
+    val inCheckRes     = Input(UInt(32.W))
+    val inXcptInvalid  = Input(Bool())
+
+    val outCheckRes    = Output(UInt(32.W))
+    val outXcptInvalid = Output(Bool())
+  })
+
+  // Synchronous registers for tracking output values
+  val checkResReg = RegInit(0.U(32.W))
+  val isInvalidReg = RegInit(false.B)
+
+  // Latch inputs combinationally on clock edges
+  checkResReg  := io.inCheckRes
+  isInvalidReg := io.inXcptInvalid
+
+  // Drive outputs directly from internal registers
+  io.outCheckRes    := checkResReg
+  io.outXcptInvalid := isInvalidReg
+}

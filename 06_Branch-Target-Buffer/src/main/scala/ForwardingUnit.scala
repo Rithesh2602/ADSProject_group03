@@ -30,17 +30,45 @@ package core_tile
 
 import chisel3._
 import chisel3.util._
-import uopc._
-
-// -----------------------------------------
-// Forwarding Unit
-// -----------------------------------------
 
 class ForwardingUnit extends Module {
   val io = IO(new Bundle {
-    // Add I/O ports according to the specification above here
+    // Inputs from Pipeline Stages / Barriers
+    val rs1_EX   = Input(UInt(5.W))
+    val rs2_EX   = Input(UInt(5.W))
+    val rd_MEM   = Input(UInt(5.W))
+    val rd_WB    = Input(UInt(5.W))
+    val wrEn_MEM = Input(Bool())
+    val wrEn_WB  = Input(Bool())
+
+    // Outputs (00 -> Register File, 10 -> From EX/MEM, 01 -> From MEM/WB)
+    val forwardA = Output(UInt(2.W))
+    val forwardB = Output(UInt(2.W))
   })
 
-  //ToDo: Add your implementation according to the specification above here 
+  // Default assignments: No forwarding (read from Register File)
+  io.forwardA := "b00".U
+  io.forwardB := "b00".U
 
+  // -------------------------------------------------------------
+  // Forwarding Logic for Operand A (rs1_EX)
+  // PRIORITIZE MEM STAGE: Only forward from WB if MEM stage is NOT writing to rs1_EX
+  // -------------------------------------------------------------
+  when(io.wrEn_MEM && (io.rd_MEM =/= 0.U) && (io.rd_MEM === io.rs1_EX)) {
+    io.forwardA := "b10".U  // Forward from EX/MEM Barrier (Highest Priority)
+  }
+  .elsewhen(io.wrEn_WB && (io.rd_WB =/= 0.U) && (io.rd_WB === io.rs1_EX)) {
+    io.forwardA := "b01".U  // Forward from MEM/WB Barrier
+  }
+
+  // -------------------------------------------------------------
+  // Forwarding Logic for Operand B (rs2_EX)
+  // PRIORITIZE MEM STAGE: Only forward from WB if MEM stage is NOT writing to rs2_EX
+  // -------------------------------------------------------------
+  when(io.wrEn_MEM && (io.rd_MEM =/= 0.U) && (io.rd_MEM === io.rs2_EX)) {
+    io.forwardB := "b10".U  // Forward from EX/MEM Barrier (Highest Priority)
+  }
+  .elsewhen(io.wrEn_WB && (io.rd_WB =/= 0.U) && (io.rd_WB === io.rs2_EX)) {
+    io.forwardB := "b01".U  // Forward from MEM/WB Barrier
+  }
 }

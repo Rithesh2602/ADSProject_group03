@@ -29,9 +29,24 @@ Functionality:
 package core_tile
 
 import chisel3._
+import chisel3.util._
 
-// -----------------------------------------
-// MEM-Barrier
-// -----------------------------------------
+class MEMBarrier extends Module {
+  val io = IO(new Bundle {
+    val inAluResult   = Input(UInt(32.W))
+    val inRD          = Input(UInt(5.W))
+    val inException   = Input(Bool())
+    val inRegWrite    = Input(Bool())
 
-//ToDo: Add your implementation according to the specification above here 
+    val outAluResult  = Output(UInt(32.W))
+    val outRD         = Output(UInt(5.W))
+    val outException  = Output(Bool())
+    val outRegWrite   = Output(Bool())
+  })
+
+  // Synchronous registers pass values safely to the Writeback (WB) stage
+  io.outAluResult   := RegNext(io.inAluResult, 0.U)
+  io.outRD          := RegNext(io.inRD, 0.U)
+  io.outException   := RegNext(io.inException, false.B)
+  io.outRegWrite    := RegNext(io.inRegWrite, false.B)
+}

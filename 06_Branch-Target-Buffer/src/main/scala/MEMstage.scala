@@ -8,11 +8,11 @@
 Memory (MEM) Stage: load/store operations (placeholder for RV32I R/I-type subset)
 
 Current Implementation:
-    Empty placeholder module with no active ports or operations
+    Passes data forward through the module with no active memory accesses
     In current RV32I subset (R-type, I-type), no memory operations are performed
 
 Rationale:
-    Placeholder stage ensures proper pipeline depth and timing
+    Ensures proper pipeline depth and timing alignment
     Allows future extension without architectural changes
 */
 
@@ -26,9 +26,23 @@ import chisel3._
 
 class MEM extends Module {
   val io = IO(new Bundle {
+    // Inputs from EX/MEM Barrier
+    val inAluResult  = Input(UInt(32.W))
+    val inRD         = Input(UInt(5.W))
+    val inException  = Input(Bool())
+    val inRegWrite   = Input(Bool())
 
+    // Outputs to MEM/WB Barrier
+    val outAluResult = Output(UInt(32.W))
+    val outRD        = Output(UInt(5.W))
+    val outException = Output(Bool())
+    val outRegWrite  = Output(Bool())
   })
 
-  // No memory operations implemented in Assignment03, nothing to do here! :)
-
+  // No active data memory operations are required for the branch/jump subset.
+  // We simply feed the signals forward to preserve pipeline depth and timing alignment.
+  io.outAluResult := io.inAluResult
+  io.outRD        := io.inRD
+  io.outException := io.inException
+  io.outRegWrite  := io.inRegWrite
 }
