@@ -54,7 +54,6 @@ import chisel3.util._
 import Assignment02.{ALU, ALUOp}
 import UOpCode._ 
 
-// FIX 1: Renamed from PipelinedRISCV32Icore to match your compilation error expected type
 class PipelinedRV32Icore (BinaryFile: String) extends Module {
   val io = IO(new Bundle {
     val check_res = Output(UInt(32.W)) 
@@ -155,11 +154,11 @@ class PipelinedRV32Icore (BinaryFile: String) extends Module {
 
   rFile.io.req_3            := stage_WB.io.regFileReq
 
-  // --- OUTPUTS ---
+  // --- WB/OUT BARRIER ---
   bar_WB_Out.io.inCheckRes    := stage_WB.io.check_res
   bar_WB_Out.io.inXcptInvalid := bar_MEM_WB.io.outException
 
-  // FIX 2 & 3: Assigned the output signals using the synchronized outputs of your WB stage barrier
+  // --- OUTPUTS ---
   io.check_res := bar_WB_Out.io.outCheckRes
   io.exception := bar_WB_Out.io.outXcptInvalid
 }
